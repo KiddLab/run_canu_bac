@@ -250,9 +250,9 @@ def run_miropeats_self(myData):
         print('ps2pdf not found in path! please fix (module load?)', flush=True)
         sys.exit()
 
-    myData['miroOut'] = myData['outDir'] + 'mirropeats.200.sel.out'
-    myData['miroOutPS'] = myData['outDir'] + 'mirropeats.200.sel.out.ps'
-    myData['miroOutPDF'] = myData['outDir'] + 'mirropeats.200.sel.out.pdf'    
+    myData['miroOut'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out'
+    myData['miroOutPS'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out.ps'
+    myData['miroOutPDF'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out.pdf'    
     
     
     cmd = 'miropeats -s 200 -onlyintra -o %s -seq %s > %s ' % (myData['miroOutPS'],myData['contig'],myData['miroOut'])
@@ -294,7 +294,7 @@ def map_to_contig_paf(myData):
         line = line.rstrip()
         line = line.split()
         pafLine = parse_paf_line(line)        
-        if paf_line_is_primary(pafLine) is True:
+        if paf_line_is_primary(pafLine) is True and pafLine['mapQ'] != 0:
             nl = [pafLine['tName'],pafLine['tStart'],pafLine['tEnd'],pafLine['qName']]
             nl = [str(j) for j in nl]
             nl = '\t'.join(nl) + '\n'
@@ -322,7 +322,7 @@ def make_windows_bed(myData,ws,stepsize):
     outFile.close()
     
     # now make the windows
-    myData['bedWindowsFile'] = myData['outDir'] + 'windows.%i.%i.bed' % (ws,stepsize)
+    myData['bedWindowsFile'] = myData['outDir'] + myData['name'] + '.%i.%i.bed' % (ws,stepsize)
     
     cmd = 'bedtools makewindows -g %s -w %i -s %i > %s' % (myData['contigLenFile'], ws,stepsize,myData['bedWindowsFile'])
     runCMD(cmd)
@@ -403,7 +403,7 @@ def make_coverage_plot(myData):
 def make_gc_plot(myData):
     # get the mean coverage in windows
     myData['GCInWindows'] = myData['bedWindowsFile'] + '.gc'
-    myData['GCInWindowsPlt'] = myData['GCInWindows'] + '.coverage.png'
+    myData['GCInWindowsPlt'] = myData['GCInWindows'] + '.png'
     
     cmd = 'bedtools nuc -fi %s -bed %s > %s ' % (myData['contig'],myData['bedWindowsFile'],myData['GCInWindows'])
     
@@ -436,6 +436,64 @@ def make_gc_plot(myData):
     plt.ylabel('GC Fraction')    
     plt.savefig(myData['GCInWindowsPlt'])
     plt.close()    
+#######################################################################    
+def make_coverage_plot_showlong(myData,numToShow):
+    # get the mean coverage in windows
+    myData['coverageInWindowsShowLongPlt'] = myData['bedWindowsFile'] + '.coverage.showlong.png'
+    
+    
+    
+    xpos = []
+    depths = []
+    inFile = open(myData['coverageInWindows'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        b = int(line[1])
+        e = int(line[2])
+        meanDepth = float(line[3])
+        mp = (e-b)/2 + b
+        xpos.append(mp)
+        depths.append(meanDepth)   
+    inFile.close()
+    
+    # need to read in the segments of reads.
+    alignSegs = []
+    inFile = open(myData['PAFbed'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        b = int(line[1])
+        e = int(line[2])
+        alignSegs.append([b,e])    
+    inFile.close()
+    
+    # sort be length
+    alignSegs.sort(key=lambda i: i[1]-i[0], reverse=True)
+    print(alignSegs[0:numToShow])
+    
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\naligned position of %i longest reads\n' % (numToShow) )
+        for i in range(numToShow):
+            fstream.write('%i\t%i\t%i\n' % (alignSegs[i][0],alignSegs[i][1],alignSegs[i][1]-alignSegs[i][0] ) )
+        fstream.flush()
+        
+    plt.figure(figsize=(8,6))        
+    plt.plot(xpos,depths,'o',color='black',markersize=3)
+    plt.xlim([1,myData['contigLen']])    
+    plt.xlabel(myData['name'])
+    plt.ylabel('Read Depth')   
+    plt.title('Coverage with %i Longest Aligned Segments' % numToShow) 
+    
+    for i in range(numToShow):
+        b = alignSegs[i][0]
+        e = alignSegs[i][1]
+        y = i * 1.25 + 1
+        plt.plot([b+1,e],[y,y],color='red')
+    
+    
+    plt.savefig(myData['coverageInWindowsShowLongPlt'])
+    plt.close()
 #######################################################################    
 
 

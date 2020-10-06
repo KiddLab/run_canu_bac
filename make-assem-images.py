@@ -48,18 +48,18 @@ bactools3.write_initial_log(myData)
 
 ###########################################################################################
 # run miropeats self
-#bactools3.run_miropeats_self(myData)
+bactools3.run_miropeats_self(myData)
 
 # get coverage and long-read information
 # map to contig
-#bactools3.map_to_contig_paf(myData)
-
+bactools3.map_to_contig_paf(myData)
 
 bactools3.make_windows_bed(myData,500,100)
-#bactools3.make_coverage_plot(myData)
+bactools3.make_coverage_plot(myData)
 
 bactools3.make_gc_plot(myData)
-
+# show positions of 5 longest reads
+bactools3.make_coverage_plot_showlong(myData,10)
 
 
 myData['logFile'].close()
