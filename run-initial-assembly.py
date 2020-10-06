@@ -42,6 +42,14 @@ if os.path.isdir(myData['outDirBase']) is False:
 
 myData['logFileName'] = myData['outDirBase'] + 'run-initial-assembly.log'
 print('logFileName',myData['logFileName'])
+
+
+logi = 1
+while os.path.isfile(myData['logFileName']) and os.path.getsize(myData['logFileName']) > 0:
+    myData['logFileName'] = myData['outDirBase'] + 'run-initial-assembly.log.' + str(logi)
+    logi += 1
+    print('logFileName',myData['logFileName'])
+    
 myData['logFile'] = open(myData['logFileName'],'w')
 
 
@@ -62,6 +70,10 @@ bactools3.run_canu_assem(myData)
 ###############################################################################
 
 # cleanup
+myData['logFile'].write('\nEXIT\n')
+now = datetime.datetime.now()
+myData['logFile'].write(str(now))
+myData['logFile'].write('\n')
 myData['logFile'].close()
 
 
