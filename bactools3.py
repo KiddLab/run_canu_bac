@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -71,9 +72,6 @@ def check_prog_paths(myData):
     if shutil.which('canu') is None:
         print('minimap2 not found in path! please fix (module load?)', flush=True)
         sys.exit()
-
-
-
 #####################################################################
 def parse_paf_line(line):
     pafLine = {}
@@ -88,9 +86,20 @@ def parse_paf_line(line):
     pafLine['tEnd'] = int(line[8])
     pafLine['numMatch'] = int(line[9])
     pafLine['alignBlockLen'] = int(line[10])
-    pafLine['mapQ'] = int(line[11])
+    pafLine['mapQ'] = int(line[11])    
+    pafLine['tags'] = line[12:]    
     return pafLine
 
+##############################################################################
+def paf_line_is_primary(pafLine):
+    for tag in pafLine['tags']:
+        if tag[0:3] == 'tp:':
+            if tag.split(':')[2] == 'P':
+                return True
+            else:
+                return False
+    print('No tp tag found, unclear!')
+    sys.exit()
 ##############################################################################
 # write initial info to log file
 def write_initial_log(myData):
@@ -116,7 +125,7 @@ def filter_contam_longread(myData):
     # check to see if already ran
     if os.path.isfile(myData['longReadFilt']) and os.path.getsize(myData['longReadFilt']) > 0:
         print('Already ran long read filter contamination!', flush=True)
-        print('Will continue anyway')
+        return
     
     if myData['longreadtype'] == 'ont':
        mapX = 'map-ont'
@@ -229,6 +238,206 @@ def run_canu_assem(myData):
         
     runCMD(cmd)    
 #######################################################################    
+def run_miropeats_self(myData):
+   # run miropeats intra 
+
+    print('Checking miropeats...')
+    if shutil.which('miropeats') is None:
+        print('miropeats not found in path! please fix (module load?)', flush=True)
+        sys.exit()
+
+    if shutil.which('ps2pdf') is None:
+        print('ps2pdf not found in path! please fix (module load?)', flush=True)
+        sys.exit()
+
+    myData['miroOut'] = myData['outDir'] + 'mirropeats.200.sel.out'
+    myData['miroOutPS'] = myData['outDir'] + 'mirropeats.200.sel.out.ps'
+    myData['miroOutPDF'] = myData['outDir'] + 'mirropeats.200.sel.out.pdf'    
+    
+    
+    cmd = 'miropeats -s 200 -onlyintra -o %s -seq %s > %s ' % (myData['miroOutPS'],myData['contig'],myData['miroOut'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nmiropeats cmd is:\n%s\n' % cmd)
+        fstream.flush()
+        
+    runCMD(cmd)        
+    cmd = 'ps2pdf %s %s' % ( myData['miroOutPS'],myData['miroOutPDF'])
+    runCMD(cmd)        
+#######################################################################    
+def map_to_contig_paf(myData):
+    if shutil.which('minimap2') is None:
+        print('miropeats not found in path! please fix (module load?)', flush=True)
+        sys.exit()
+        
+    myData['PAFout'] = myData['outDir'] + 'align.paf'
+    myData['PAFbed'] = myData['outDir'] + 'align.paf.bed'    
+    
+    
+    cmd = 'minimap2 -x '
+    if myData['longreadtype'] == 'ont':
+        cmd += ' map-ont'
+    else:
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nERRROR!!!\nlong read type is :\n%s\nI do not know it' % myData['longreadtype'])            
+            fstream.flush()
+        sys.exit() # fail!
+    
+    cmd += ' -c %s %s > %s ' % (myData['contig'],myData['longread'],myData['PAFout'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\minimap2 cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)        
+    
+    outFile = open(myData['PAFbed'],'w')
+    inFile = open(myData['PAFout'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        pafLine = parse_paf_line(line)        
+        if paf_line_is_primary(pafLine) is True:
+            nl = [pafLine['tName'],pafLine['tStart'],pafLine['tEnd'],pafLine['qName']]
+            nl = [str(j) for j in nl]
+            nl = '\t'.join(nl) + '\n'
+            outFile.write(nl)
+    outFile.close()
+    inFile.close()
+#######################################################################    
+def make_windows_bed(myData,ws,stepsize):
+    
+    # first, need the .fai file
+    faSeqs = read_fasta_file_to_dist(myData['contig'])
+    
+    if len(faSeqs) != 1:
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nERROR\nHave to many seqs in %s\n' % myData['contig'])
+            fstream.flush()
+        sys.exit()
+    
+    
+    myData['contigLenFile'] = myData['outDir'] + 'contig_len.txt'
+    outFile = open(myData['contigLenFile'],'w')
+    for seq in faSeqs:
+        outFile.write('%s\t%i\n' % (seq,faSeqs[seq]['seqLen']))
+        myData['contigLen'] = faSeqs[seq]['seqLen']
+    outFile.close()
+    
+    # now make the windows
+    myData['bedWindowsFile'] = myData['outDir'] + 'windows.%i.%i.bed' % (ws,stepsize)
+    
+    cmd = 'bedtools makewindows -g %s -w %i -s %i > %s' % (myData['contigLenFile'], ws,stepsize,myData['bedWindowsFile'])
+    runCMD(cmd)
+#######################################################################    
+def read_fasta_file_to_dist(fastaFile):
+    myDict = {}
+    inFile = open(fastaFile,'r')
+    line = inFile.readline()
+    line = line.rstrip()
+    if line[0] != '>':
+        print('ERROR, FILE DOESNNOT START WITH >', flush=True)
+        sys.exit()
+    myName = line[1:].split()[0]
+    myDict[myName] = {}
+    myDict[myName]['seq'] = ''
+    myDict[myName]['seqLen'] = 0    
+    mySeq = ''
+    while True:
+        line = inFile.readline()
+        if line == '':
+            myDict[myName]['seq'] = mySeq
+            myDict[myName]['seqLen'] = len(myDict[myName]['seq'])         
+            break
+        line = line.rstrip()
+        if line[0] == '>':
+            myDict[myName]['seq'] = mySeq
+            myDict[myName]['seqLen'] = len(myDict[myName]['seq'])         
+            myName = line[1:].split()[0]
+            myDict[myName] = {}
+            myDict[myName]['seq'] = ''
+            myDict[myName]['seqLen'] = 0    
+            mySeq = ''
+            continue
+        mySeq += line
+    inFile.close()
+    return myDict
+###############################################################################
+def make_coverage_plot(myData):
+    # get the mean coverage in windows
+    myData['coverageInWindows'] = myData['bedWindowsFile'] + '.coverage'
+    myData['coverageInWindowsPlt'] = myData['bedWindowsFile'] + '.coverage.png'
+    
+    
+    cmd  = 'bedtools coverage -mean  -a %s -b %s > %s ' % (myData['bedWindowsFile'],myData['PAFbed'],myData['coverageInWindows'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\ncoverage cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\ncontig len is:\t%i\n' % myData['contigLen'])
+        fstream.flush()
+
+    
+    xpos = []
+    depths = []
+    inFile = open(myData['coverageInWindows'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        b = int(line[1])
+        e = int(line[2])
+        meanDepth = float(line[3])
+        mp = (e-b)/2 + b
+        xpos.append(mp)
+        depths.append(meanDepth)
+   
+    inFile.close()
+        
+    plt.figure(figsize=(8,6))        
+    plt.plot(xpos,depths,'o',color='black',markersize=3)
+    plt.xlim([1,myData['contigLen']])    
+    plt.xlabel(myData['name'])
+    plt.ylabel('Read Depth')    
+    plt.savefig(myData['coverageInWindowsPlt'])
+    plt.close()
+#######################################################################    
+def make_gc_plot(myData):
+    # get the mean coverage in windows
+    myData['GCInWindows'] = myData['bedWindowsFile'] + '.gc'
+    myData['GCInWindowsPlt'] = myData['GCInWindows'] + '.coverage.png'
+    
+    cmd = 'bedtools nuc -fi %s -bed %s > %s ' % (myData['contig'],myData['bedWindowsFile'],myData['GCInWindows'])
+    
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\ngc cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+    
+    xpos = []
+    gc = []
+    inFile = open(myData['GCInWindows'],'r')
+    for line in inFile:
+        if line[0] == '#':
+            continue            
+        line = line.rstrip()
+        line = line.split()
+        b = int(line[1])
+        e = int(line[2])
+        gcW = float(line[3])
+        mp = (e-b)/2 + b
+        xpos.append(mp)
+        gc.append(gcW)   
+    inFile.close()
+        
+    plt.figure(figsize=(8,6))        
+    plt.plot(xpos,gc,'o',color='blue',markersize=3)
+    plt.xlim([1,myData['contigLen']])  
+    plt.ylim([0,1.0])  
+    plt.xlabel(myData['name'])
+    plt.ylabel('GC Fraction')    
+    plt.savefig(myData['GCInWindowsPlt'])
+    plt.close()    
+#######################################################################    
+
 
 
 

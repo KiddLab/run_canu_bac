@@ -12,8 +12,6 @@ parser.add_argument('--name', type=str,help='name of project',required=True)
 parser.add_argument('--longread', type=str,help='file of long reads',required=True)
 parser.add_argument('--contam', type=str,help='fasta of contamination (E. coli), with bwa mem index',required=True)
 parser.add_argument('--target',type=str,help='fasta file of sequnece to use for begining of rotated sequence',required=True)
-parser.add_argument('--clean', help='whether or not to make assembly file with the target sequence removed, default is TRUE',
-                               action='store_true')
 parser.add_argument('--threads',type=int,default=3,help='Number of threads to use, default is 3')
 
 
@@ -28,7 +26,6 @@ myData['longreadtype'] = 'ont' # for now, only option is oxford nanopore
 myData['contam'] = args.contam 
 myData['numThreads'] = args.threads 
 myData['targetFa']  = args.target 
-myData['doClean'] = args.clean
 
 # setup needed files
 if myData['outDirBase'][-1] != '/':
