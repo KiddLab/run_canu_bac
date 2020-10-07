@@ -391,10 +391,14 @@ def make_coverage_plot(myData):
         depths.append(meanDepth)
    
     inFile.close()
+    
+    maxDepth = 1.1 * max(depths) # 10% more
+    
         
     plt.figure(figsize=(8,6))        
     plt.plot(xpos,depths,'o',color='black',markersize=3)
     plt.xlim([1,myData['contigLen']])    
+    plt.ylim([0,maxDepth])
     plt.xlabel(myData['name'])
     plt.ylabel('Read Depth')    
     plt.savefig(myData['coverageInWindowsPlt'])
@@ -477,10 +481,16 @@ def make_coverage_plot_showlong(myData,numToShow):
         for i in range(numToShow):
             fstream.write('%i\t%i\t%i\n' % (alignSegs[i][0],alignSegs[i][1],alignSegs[i][1]-alignSegs[i][0] ) )
         fstream.flush()
+    
+    
+    maxDepth = 1.1 * max(depths) # 10% more
+
         
     plt.figure(figsize=(8,6))        
     plt.plot(xpos,depths,'o',color='black',markersize=3)
-    plt.xlim([1,myData['contigLen']])    
+    plt.xlim([1,myData['contigLen']])  
+    plt.ylim([0,maxDepth])
+      
     plt.xlabel(myData['name'])
     plt.ylabel('Read Depth')   
     plt.title('Coverage with %i Longest Aligned Segments' % numToShow) 
@@ -593,9 +603,14 @@ def make_vector_esp_plot(myData):
         depths.append(meanDepth)   
     inFile.close()
 
+    maxDepth = 1.1 * max(depths) # 10% more
+
+
     plt.figure(figsize=(8,6))        
     plt.plot(xpos,depths,'o',color='black',markersize=3)
-    plt.xlim([1,myData['contigLen']])    
+    plt.xlim([1,myData['contigLen']]) 
+    plt.ylim([0,maxDepth])
+       
     plt.xlabel(myData['name'])
     plt.ylabel('Read Depth')   
     plt.title('Coverage with Vector and End Sequence Hits') 
