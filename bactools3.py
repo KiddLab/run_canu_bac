@@ -106,6 +106,11 @@ def check_prog_paths(myData):
         print('miropeats not found in path! please fix (module load?)', flush=True)
         sys.exit()
 
+    print('Checking ps2pdf...')
+    if shutil.which('ps2pdf') is None:
+        print('ps2pdf not found in path! please fix (module load?)', flush=True)
+        sys.exit()
+
     print('Checking racon...')
     if shutil.which('racon') is None:
         print('racon not found in path! please fix (module load?)', flush=True)
@@ -281,20 +286,24 @@ def run_canu_assem(myData):
 #######################################################################    
 def run_miropeats_self(myData):
    # run miropeats intra 
-
-    print('Checking miropeats...')
-    if shutil.which('miropeats') is None:
-        print('miropeats not found in path! please fix (module load?)', flush=True)
-        sys.exit()
-
-    if shutil.which('ps2pdf') is None:
-        print('ps2pdf not found in path! please fix (module load?)', flush=True)
-        sys.exit()
-
     myData['miroOut'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out'
     myData['miroOutPS'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out.ps'
     myData['miroOutPDF'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out.pdf'    
-    
+
+    if os.path.isfile(myData['miroOutPS'])  is True:
+        cmd = 'rm %s'  % myData['miroOutPS']
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nprevious miroOutPS file found, removing it\n%s\n' % cmd)
+            fstream.flush()
+        runCMD(cmd)
+
+    if os.path.isfile(myData['miroOutPDF'])  is True:
+        cmd = 'rm %s'  % myData['miroOutPDF']
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nprevious miroOutPDF file found, removing it\n%s\n' % cmd)
+            fstream.flush()
+        runCMD(cmd)
+
     
     cmd = 'miropeats -s 200 -onlyintra -o %s -seq %s > %s ' % (myData['miroOutPS'],myData['contig'],myData['miroOut'])
     for fstream in [sys.stdout,myData['logFile']]:
@@ -547,6 +556,13 @@ def make_vector_esp_plot(myData):
     
     myData['vectorMapOut'] = myData['outDir'] + 'vector-map.paf'
     
+    if os.path.isfile(myData['vectorMapOut'])  is True:
+        cmd = 'rm %s'  % myData['vectorMapOut']
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nprevious vector map out file found, removing it\n%s\n' % cmd)
+            fstream.flush()
+        runCMD(cmd)
+    
     cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
     for fstream in [sys.stdout,myData['logFile']]:
         fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
@@ -574,6 +590,20 @@ def make_vector_esp_plot(myData):
 
     myData['R2fa'] = myData['outDir'] + 'R2.fa'
     myData['R2Map'] = myData['outDir'] + 'R2-map.paf'
+
+    if os.path.isfile(myData['R1Map'])  is True:
+        cmd = 'rm %s' % myData['R1Map']
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nprevious R1Map map out file found, removing it\n%s\n' % cmd)
+            fstream.flush()
+        runCMD(cmd)
+
+    if os.path.isfile(myData['R2Map'])  is True:
+        cmd = 'rm %s' % myData['R2Map']
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nprevious R2Map map out file found, removing it\n%s\n' % cmd)
+            fstream.flush()
+        runCMD(cmd)
 
 
     
@@ -892,7 +922,13 @@ def run_rotate_and_remove(myData):
     name = list(fastaSeqs.keys())[0]
     seq = fastaSeqs[name]['seq']    
     #tEnd is in bedFormat -- so can use directly, will get the next base...
-    newSeq = seq[vectorHit[0]:]
+    newSeq = seq[vectorHit[1]:]
+
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nvector seq ended at map pos %i\n' % vectorHit[1])
+        fstream.write('length of new trimmed seq is %i\n' % len(newSeq))
+        fstream.flush()
+    
     newSeq = add_breaks_to_line(newSeq,n=100)
     outFile = open(myData['rotatedCleanedFa'],'w')
     outFile.write('>%s\n' % (myData['cloneName']))
