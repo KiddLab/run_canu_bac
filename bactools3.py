@@ -305,7 +305,7 @@ def map_to_contig_paf(myData):
 def make_windows_bed(myData,ws,stepsize):
     
     # first, need the .fai file
-    faSeqs = read_fasta_file_to_dist(myData['contig'])
+    faSeqs = read_fasta_file_to_dict(myData['contig'])
     
     if len(faSeqs) != 1:
         for fstream in [sys.stdout,myData['logFile']]:
@@ -327,7 +327,7 @@ def make_windows_bed(myData,ws,stepsize):
     cmd = 'bedtools makewindows -g %s -w %i -s %i > %s' % (myData['contigLenFile'], ws,stepsize,myData['bedWindowsFile'])
     runCMD(cmd)
 #######################################################################    
-def read_fasta_file_to_dist(fastaFile):
+def read_fasta_file_to_dict(fastaFile):
     myDict = {}
     inFile = open(fastaFile,'r')
     line = inFile.readline()
@@ -640,4 +640,32 @@ def make_vector_esp_plot(myData):
 
     plt.savefig(myData['coverageInWindowsShowVectorESP'])
     plt.close()
+#######################################################################    
+def extract_segment(myData):
+    faSeqs = read_fasta_file_to_dict(myData['contig'])
+    
+    if len(faSeqs) != 1:
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nERROR\nHave to many seqs in %s\n' % myData['contig'])
+            fstream.flush()
+        sys.exit()
+    
+    
+    k = faSeqs.keys()
+    k = list(k)
+    seqName = k[0]
+    seq = faSeqs[seqName]
+    
+    newSeq = seq['seq'][myData['trimStart']-1:myData['trimEnd']]    
+    newSeqBreaks = add_breaks_to_line(newSeq)
+    myData['newSeqFileName'] = myData['outDir'] + myData['name'] + '.fa'
+        
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nExtracted length is:\t%i' % len(newSeq))
+        fstream.write('\nwriting to new file:\t%s\n' % myData['newSeqFileName'])        
+        fstream.flush()        
+    outFile = open(myData['newSeqFileName'],'w')
+    outFile.write('>%s\n' % myData['name'])
+    outFile.write('%s\n' % (newSeqBreaks))
+    outFile.close()
 #######################################################################    
