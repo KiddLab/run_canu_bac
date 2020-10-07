@@ -8,9 +8,37 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
-
-###############################################################################
+##############################################################################
+# Returns complement of a bp.  If not ACGT then return same char
+def complement(c):
+    if c == 'A':
+        return 'T'
+    if c == 'T':
+        return 'A'
+    if c == 'C':
+        return 'G'
+    if c == 'G':
+        return 'C'
+    if c == 'a':
+        return 't'
+    if c == 't':
+        return 'a'
+    if c == 'c':
+        return 'g'
+    if c == 'g':
+        return 'c'
+    # If not ACTGactg simply return same character
+    return c   
+##############################################################################
+# Returns the reverse compliment of sequence 
+def revcomp(seq):
+    c = ''    
+    seq = seq[::-1] #reverse
+    # Note, this good be greatly sped up using list operations
+    seq = [complement(i) for i in seq]
+    c = ''.join(seq)
+    return c
+##############################################################################
 def add_breaks_to_line(seq,n=50):
     myList = []
     myList = [i for i in seq]
@@ -277,11 +305,7 @@ def run_miropeats_self(myData):
     cmd = 'ps2pdf %s %s' % ( myData['miroOutPS'],myData['miroOutPDF'])
     runCMD(cmd)        
 #######################################################################    
-def map_to_contig_paf(myData):
-    if shutil.which('minimap2') is None:
-        print('miropeats not found in path! please fix (module load?)', flush=True)
-        sys.exit()
-        
+def map_to_contig_paf(myData):        
     myData['PAFout'] = myData['outDir'] + 'align.paf'
     myData['PAFbed'] = myData['outDir'] + 'align.paf.bed'    
     
@@ -722,9 +746,164 @@ def run_racon(myData):
         fstream.write('\nracon cmd is:\n%s\n' % cmd)
         fstream.flush()
     runCMD(cmd)        
-
-
-
-
 #######################################################################    
+def run_rotate_and_remove(myData):
+    
+    myData['rotatedFa'] = myData['outDir'] + myData['name'] + '.rotated.fa'
+    myData['rotatedCleanedFa'] = myData['outDir'] + myData['name'] + '.rotated.clean.fa'
+    myData['finalFa'] = myData['outDir'] + myData['cloneName'] + '.fa'
 
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nNOTE: Rotate based on mapping of vector.\n I am assuming there is a single circular contig\nand the the vector is not split\n')
+        fstream.flush()
+    
+    
+    myData['vectorMapOut'] = myData['outDir'] + 'vector-map.paf'
+    
+    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+
+    # read in vector hits
+    vectorHits = []
+    inFile = open(myData['vectorMapOut'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        pafLine = parse_paf_line(line)   
+        vectorHits.append([pafLine['tStart'],pafLine['tEnd'],pafLine['strand'],pafLine['qStart'],pafLine['qEnd'],pafLine['qLen']])        
+    inFile.close()
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('Vector hits:\n')
+        for v in vectorHits:
+            fstream.write('%s\t%s\t%s\t%s\t%s\n' % (v[0],v[1],v[2],v[3],v[4]))
+        fstream.flush()
+        
+    if len(vectorHits) != 1:
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('ERROR! not 1 vector hit:\n')
+            fstream.flush()
+        sys.exit()    
+    vectorHit = vectorHits[0]
+    
+    
+    if vectorHit[2] == '-':
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('Need to make reverse complement of sequence!\n')
+            fstream.flush()
+    
+        fastaSeqs = read_fasta_file_to_dict(myData['contig'])
+        name = list(fastaSeqs.keys())[0]
+        seq = fastaSeqs[name]['seq']
+        seq = revcomp(seq)
+        seq = add_breaks_to_line(seq,n=100)
+        myData['assemFa'] = myData['outDir'] + myData['name']  + '.working.rc.fa'        
+        outFile = open(myData['assemFa'],'w')
+        outFile.write('>%s\n' % (name))
+        outFile.write(seq)
+        outFile.close()
+    
+        # then, need to redo the alignment
+        myData['vectorMapOut'] = myData['outDir'] + 'vector-map.redo.paf'    
+        cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['assemFa'],myData['vector'],myData['vectorMapOut'])
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
+            fstream.flush()
+        runCMD(cmd)
+        # read in vector hits
+        vectorHits = []
+        inFile = open(myData['vectorMapOut'],'r')
+        for line in inFile:
+            line = line.rstrip()
+            line = line.split()
+            pafLine = parse_paf_line(line)   
+            vectorHits.append([pafLine['tStart'],pafLine['tEnd'],pafLine['strand'],pafLine['qStart'],pafLine['qEnd'],pafLine['qLen']])        
+        inFile.close()
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('Vector hits:\n')
+            for v in vectorHits:
+                fstream.write('%s\t%s\t%s\t%s\t%s\n' % (v[0],v[1],v[2],v[3],v[4]))
+            fstream.flush()
+        vectorHit = vectorHits[0]
+    else:
+        myData['assemFa'] = myData['contig']
+
+
+    # check the size hit
+    if vectorHit[3] != 0 or vectorHit[4] != vectorHit[5]:
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('ERROR! vector not totally spanned in hit:\n')
+            fstream.flush()
+        sys.exit()
+    
+
+    # for now, will assume that the vector sequence is not across the circle junction -- that would be a complication
+    # will do the coordinates in 1 base system, not bed/psl
+    tStart = vectorHit[0] + 1
+    fastaSeqs = read_fasta_file_to_dict(myData['assemFa'])
+    name = list(fastaSeqs.keys())[0]
+
+    originalSeq = fastaSeqs[name]['seq']
+    part1 = originalSeq[tStart-1:]  # starts at the original seq
+    part2 = originalSeq[0:tStart-1]
+    print('p1 len',len(part1))
+    print('p2 len',len(part2))
+    print('total',len(part1) + len(part2))
+
+    outFile = open(myData['rotatedFa'],'w')
+    outFile.write('>%s\n' % (myData['cloneName']))
+    seq = part1 + part2
+    seq = add_breaks_to_line(seq,n=100)
+    outFile.write(seq)
+    outFile.close()
+
+    # now determine where vector is in the rotated
+    myData['rotatedVectorMapOut'] = myData['outDir'] + 'rotated-vector-map.paf'
+    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['rotatedFa'],myData['vector'],myData['rotatedVectorMapOut'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nrotated map vector cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+
+    # read in vector hits
+    vectorHits = []
+    inFile = open(myData['rotatedVectorMapOut'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        pafLine = parse_paf_line(line)   
+        vectorHits.append([pafLine['tStart'],pafLine['tEnd'],pafLine['strand'],pafLine['qStart'],pafLine['qEnd'],pafLine['qLen']])        
+    inFile.close()
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('Vector hits:\n')
+        for v in vectorHits:
+            fstream.write('%s\t%s\t%s\t%s\t%s\n' % (v[0],v[1],v[2],v[3],v[4]))
+        fstream.flush()
+    vectorHit = vectorHits[0]
+    
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nRemoving vector!:\n')
+    fstream.flush()
+
+    
+    fastaSeqs = read_fasta_file_to_dict(myData['rotatedFa'])    
+    name = list(fastaSeqs.keys())[0]
+    seq = fastaSeqs[name]['seq']    
+    #tEnd is in bedFormat -- so can use directly, will get the next base...
+    newSeq = seq[vectorHit[0]:]
+    newSeq = add_breaks_to_line(newSeq,n=100)
+    outFile = open(myData['rotatedCleanedFa'],'w')
+    outFile.write('>%s\n' % (myData['cloneName']))
+    outFile.write(newSeq)
+    outFile.close()
+    
+
+    cmd = 'cp %s %s' % ( myData['rotatedCleanedFa'],myData['finalFa'])    
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\ncopy to final file cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+    
+#####################################################################
