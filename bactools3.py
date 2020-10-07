@@ -70,8 +70,21 @@ def check_prog_paths(myData):
 
     print('Checking canu...')
     if shutil.which('canu') is None:
-        print('minimap2 not found in path! please fix (module load?)', flush=True)
+        print('canu not found in path! please fix (module load?)', flush=True)
         sys.exit()
+
+    print('Checking miropeats...')
+    if shutil.which('miropeats') is None:
+        print('miropeats not found in path! please fix (module load?)', flush=True)
+        sys.exit()
+
+    print('Checking racon...')
+    if shutil.which('racon') is None:
+        print('racon not found in path! please fix (module load?)', flush=True)
+        sys.exit()
+
+
+
 #####################################################################
 def parse_paf_line(line):
     pafLine = {}
@@ -684,3 +697,34 @@ def extract_segment(myData):
     outFile.write('%s\n' % (newSeqBreaks))
     outFile.close()
 #######################################################################    
+def run_racon(myData):
+    myData['PAFout'] = myData['outDir'] + 'align.paf'
+    myData['polishedFa'] = myData['outDir'] + myData['name'] + '.fa'
+
+    cmd = 'minimap2 -x '
+    if myData['longreadtype'] == 'ont':
+        cmd += ' map-ont'
+    else:
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nERRROR!!!\nlong read type is :\n%s\nI do not know it' % myData['longreadtype'])            
+            fstream.flush()
+        sys.exit() # fail!
+    
+    cmd += ' -c %s %s > %s ' % (myData['contig'],myData['longread'],myData['PAFout'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nminimap2 cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)        
+
+    # racon
+    cmd = 'racon --no-trimming %s %s %s > %s ' % (myData['longread'],myData['PAFout'],myData['contig'],myData['polishedFa'] )
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nracon cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)        
+
+
+
+
+#######################################################################    
+

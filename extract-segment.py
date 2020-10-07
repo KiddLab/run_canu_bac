@@ -48,6 +48,7 @@ while os.path.isfile(myData['logFileName']) and os.path.getsize(myData['logFileN
     
 myData['logFile'] = open(myData['logFileName'],'w')
 
+bactools3.check_prog_paths(myData)
 bactools3.write_initial_log(myData)
 
 ###########################################################################################
