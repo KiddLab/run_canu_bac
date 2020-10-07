@@ -284,7 +284,7 @@ def map_to_contig_paf(myData):
     
     cmd += ' -c %s %s > %s ' % (myData['contig'],myData['longread'],myData['PAFout'])
     for fstream in [sys.stdout,myData['logFile']]:
-        fstream.write('\minimap2 cmd is:\n%s\n' % cmd)
+        fstream.write('\nminimap2 cmd is:\n%s\n' % cmd)
         fstream.flush()
     runCMD(cmd)        
     
@@ -495,13 +495,149 @@ def make_coverage_plot_showlong(myData,numToShow):
     plt.savefig(myData['coverageInWindowsShowLongPlt'])
     plt.close()
 #######################################################################    
+def make_vector_esp_plot(myData):
+    print('ready to do vector and esp')
+    
+    myData['vectorMapOut'] = myData['outDir'] + 'vector-map.paf'
+    
+    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+    
+    # read in vector hits
+    vectorHits = []
+    inFile = open(myData['vectorMapOut'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        pafLine = parse_paf_line(line)   
+        vectorHits.append([pafLine['tStart'],pafLine['tEnd'],pafLine['strand']])        
+    inFile.close()
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('Vector hits:\n')
+        for v in vectorHits:
+            fstream.write('%s\t%s\t%s\n' % (v[0],v[1],v[2]))
+        fstream.flush()
+    
+    # get R1 and R2 hits
+    myData['R1fa'] = myData['outDir'] + 'R1.fa'
+    myData['R1Map'] = myData['outDir'] + 'R1-map.paf'
+
+    myData['R2fa'] = myData['outDir'] + 'R2.fa'
+    myData['R2Map'] = myData['outDir'] + 'R2-map.paf'
 
 
+    
+    cmd = 'samtools faidx %s %s > %s' % (myData['libraryEndSeqsFA'],myData['cloneName'] + '_R1', myData['R1fa'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nextract and map R1 and R2:\n%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+    cmd = 'samtools faidx %s %s > %s' % (myData['libraryEndSeqsFA'],myData['cloneName'] + '_R2', myData['R2fa'])
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('%s\n' % cmd)
+        fstream.flush()
+    runCMD(cmd)
+
+    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['R1fa'],myData['R1Map'])
+    runCMD(cmd)
+    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['R2fa'],myData['R2Map'])
+    runCMD(cmd)
+
+    # read in read hits
+    R1Hits = []
+    inFile = open(myData['R1Map'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        pafLine = parse_paf_line(line)   
+        R1Hits.append([pafLine['tStart'],pafLine['tEnd'],pafLine['strand']])        
+    inFile.close()
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('R1Hits hits:\n')
+        for v in R1Hits:
+            fstream.write('%s\t%s\t%s\n' % (v[0],v[1],v[2]))
+        fstream.flush()
+    
+    R2Hits = []
+    inFile = open(myData['R2Map'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        pafLine = parse_paf_line(line)   
+        R2Hits.append([pafLine['tStart'],pafLine['tEnd'],pafLine['strand']])        
+    inFile.close()
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('R2Hits hits:\n')
+        for v in R2Hits:
+            fstream.write('%s\t%s\t%s\n' % (v[0],v[1],v[2]))
+        fstream.flush()
+
+# now, ready to make plot.  we will use background of coverage info to help orient..
+
+    myData['coverageInWindowsShowVectorESP'] = myData['bedWindowsFile'] + '.coverage.show-vector-esp.png'
+    
+    xpos = []
+    depths = []
+    inFile = open(myData['coverageInWindows'],'r')
+    for line in inFile:
+        line = line.rstrip()
+        line = line.split()
+        b = int(line[1])
+        e = int(line[2])
+        meanDepth = float(line[3])
+        mp = (e-b)/2 + b
+        xpos.append(mp)
+        depths.append(meanDepth)   
+    inFile.close()
+
+    plt.figure(figsize=(8,6))        
+    plt.plot(xpos,depths,'o',color='black',markersize=3)
+    plt.xlim([1,myData['contigLen']])    
+    plt.xlabel(myData['name'])
+    plt.ylabel('Read Depth')   
+    plt.title('Coverage with Vector and End Sequence Hits') 
+    
+    # show vector hits at depth 2, black for fwd, grey for reverse    
+    for hit in vectorHits:
+        b = hit[0] + 1
+        e = hit[1]
+        strand = hit[2]
+        if strand == '+':
+            myCol = 'black'
+        else:
+            myCol = 'grey'
+            
+        y = 2
+        plt.plot([b,e],[y,y],color=myCol,linewidth=4)
+
+    # show R1 hits   
+    for hit in R1Hits:
+        b = hit[0] + 1
+        e = hit[1]
+        strand = hit[2]
+        if strand == '+':
+            myCol = 'blue'
+        else:
+            myCol = 'cyan'            
+        y = 2
+        plt.plot([b,e],[y,y],color=myCol,linewidth=4)
+
+    # show R1 hits   
+    for hit in R2Hits:
+        b = hit[0] + 1
+        e = hit[1]
+        strand = hit[2]
+        if strand == '+':
+            myCol = 'red'
+        else:
+            myCol = 'pink'            
+        y = 2
+        plt.plot([b,e],[y,y],color=myCol,linewidth=4)
 
 
-
-
-
-
-
-
+    plt.savefig(myData['coverageInWindowsShowVectorESP'])
+    plt.close()
+#######################################################################    

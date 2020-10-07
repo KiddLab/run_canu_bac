@@ -11,6 +11,8 @@ parser.add_argument('--outdir', type=str,help='Path to output directory for this
 parser.add_argument('--name', type=str,help='name of project',required=True)
 parser.add_argument('--longread', type=str,help='file of long reads',required=True)
 parser.add_argument('--contig', type=str,help='fasta file of contig, should be single sequence',required=True)
+parser.add_argument('--vector', type=str,help='fasta file of vector should be single sequence',required=True)
+parser.add_argument('--clonename', type=str,help='clone name used to extract end sequences',required=True)
 
 args = parser.parse_args()
 
@@ -21,6 +23,11 @@ myData['longread'] = args.longread
 myData['longreadtype'] = 'ont' # for now, only option is oxford nanopore
 myData['contig'] = args.contig 
 myData['outDir'] = args.outdir 
+myData['vector'] = args.vector
+myData['cloneName'] = args.clonename 
+myData['libraryEndSeqsFA'] = '/home/jmkidd/links/kidd-lab/jmkidd-projects/dogs/nanopore/BAC-assembly-2020/data/CHORI-82.end-sequences.fa' # sorry, hardcoded in for now.
+
+
 
 # setup needed files
 if myData['outDir'][-1] != '/':
@@ -61,5 +68,7 @@ bactools3.make_gc_plot(myData)
 # show positions of 5 longest reads
 bactools3.make_coverage_plot_showlong(myData,10)
 
+# map vector backbone and end sequences
+bactools3.make_vector_esp_plot(myData)
 
 myData['logFile'].close()
