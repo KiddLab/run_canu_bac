@@ -2,7 +2,7 @@ import sys
 import bactools3
 import argparse
 import os
-
+import datetime
 
 parser = argparse.ArgumentParser(description='run Canu on oxford nanopore BACs')
 
