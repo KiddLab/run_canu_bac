@@ -11,6 +11,8 @@ parser.add_argument('--outdir', type=str,help='Path to output directory for this
 parser.add_argument('--name', type=str,help='name of project',required=True)
 parser.add_argument('--contig', type=str,help='fasta file of contig, should be single sequence',required=True)
 parser.add_argument('--clonename', type=str,help='clone name used to extract end sequences',required=True)
+parser.add_argument('--start', type=int,help='Start position to extract, 1-based',required=False)
+parser.add_argument('--end', type=int,help='End position to extract, 1-based',required=False)
 parser.add_argument('--usecanuseg', action='store_true')
 
 
@@ -78,7 +80,21 @@ if myData['useCanuSegment'] is True:
     myData['trimStart'] = b  # note, is 1 based
     myData['trimEnd'] = e  # note, is 1 based
 else:
-    sys.exit() # to implement
+    if args.start is None or args.end is None:
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nERROR!\nmanual extraction! need start and end\n' )
+            fstream.flush()
+        sys.exit()
+
+    
+    
+    for fstream in [sys.stdout,myData['logFile']]:
+        fstream.write('\nmanual extraction! %i - %i\n' % (args.start,args.end) )
+        fstream.flush()
+    myData['trimStart'] = args.start  # note, is 1 based
+    myData['trimEnd'] = args.end # note, is 1 based
+    
+    
     
 for fstream in [sys.stdout,myData['logFile']]:
     fstream.write('\nwill trim to %i - %i\n' % (myData['trimStart'],myData['trimEnd']) )	
