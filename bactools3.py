@@ -815,10 +815,56 @@ def run_rotate_and_remove(myData):
     if len(vectorHits) != 1:
         for fstream in [sys.stdout,myData['logFile']]:
             fstream.write('ERROR! not 1 vector hit:\n')
+            fstream.write('try to rotate 25kb and try again!\n')            
             fstream.flush()
-        sys.exit()    
+            
+        # do rotation
+        tStart = 25000
+        fastaSeqs = read_fasta_file_to_dict(myData['contig'])
+        name = list(fastaSeqs.keys())[0]
+
+        originalSeq = fastaSeqs[name]['seq']
+        part1 = originalSeq[tStart-1:]  # starts at the original seq
+        part2 = originalSeq[0:tStart-1]
+        print('p1 len',len(part1))
+        print('p2 len',len(part2))
+        print('total',len(part1) + len(part2))
+        
+        tmpOut = myData['rotatedFa'] + '.tmpRotate.fa'
+        outFile = open(tmpOut,'w')
+        outFile.write('>%s\n' % (myData['cloneName']))
+        seq = part1 + part2
+        seq = add_breaks_to_line(seq,n=100)
+        outFile.write(seq)
+        outFile.close()
+        
+        myData['contig'] = tmpOut  #try again after rotation        
+        cmd = 'minimap2 -c -x asm10 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
+            fstream.flush()
+        runCMD(cmd)
+        
+       # read in vector hits
+        vectorHits = []
+        inFile = open(myData['vectorMapOut'],'r')
+        for line in inFile:
+            line = line.rstrip()
+            line = line.split()
+            pafLine = parse_paf_line(line)   
+            vectorHits.append([pafLine['tStart'],pafLine['tEnd'],pafLine['strand'],pafLine['qStart'],pafLine['qEnd'],pafLine['qLen']])        
+        inFile.close()
+        for fstream in [sys.stdout,myData['logFile']]:
+            fstream.write('Vector hits:\n')
+            for v in vectorHits:
+                fstream.write('%s\t%s\t%s\t%s\t%s\n' % (v[0],v[1],v[2],v[3],v[4]))
+            fstream.flush()
+        if len(vectorHits) != 1:
+            for fstream in [sys.stdout,myData['logFile']]:
+                fstream.write('ERROR! not 1 vector hit after second try!\n')
+                fstream.flush()
+            sys.exit()        
     vectorHit = vectorHits[0]
-    
     
     if vectorHit[2] == '-':
         for fstream in [sys.stdout,myData['logFile']]:
