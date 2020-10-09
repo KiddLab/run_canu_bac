@@ -13,6 +13,7 @@ parser.add_argument('--longread', type=str,help='file of long reads',required=Tr
 parser.add_argument('--contig', type=str,help='fasta file of contig, should be single sequence',required=True)
 parser.add_argument('--vector', type=str,help='fasta file of vector should be single sequence',required=True)
 parser.add_argument('--clonename', type=str,help='clone name used to extract end sequences',required=True)
+parser.add_argument('--miropeats_s', type=int,help='miropeats -s option',required=False,default=200)
 
 args = parser.parse_args()
 
@@ -26,7 +27,7 @@ myData['outDir'] = args.outdir
 myData['vector'] = args.vector
 myData['cloneName'] = args.clonename 
 myData['libraryEndSeqsFA'] = '/home/jmkidd/links/kidd-lab/jmkidd-projects/dogs/nanopore/BAC-assembly-2020/data/CHORI-82.end-sequences.fa' # sorry, hardcoded in for now.
-
+myData['miropeats_s'] = args.miropeats_s
 
 
 # setup needed files

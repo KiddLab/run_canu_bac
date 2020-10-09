@@ -286,9 +286,10 @@ def run_canu_assem(myData):
 #######################################################################    
 def run_miropeats_self(myData):
    # run miropeats intra 
-    myData['miroOut'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out'
-    myData['miroOutPS'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out.ps'
-    myData['miroOutPDF'] = myData['outDir'] + myData['name'] + '.mirropeats.200.sel.out.pdf'    
+        
+    myData['miroOut'] = myData['outDir'] + myData['name'] + '.mirropeats.%i.sel.out' % myData['miropeats_s']
+    myData['miroOutPS'] = myData['outDir'] + myData['name'] + '.mirropeats.%i.sel.out.ps' % myData['miropeats_s']
+    myData['miroOutPDF'] = myData['outDir'] + myData['name'] + '.mirropeats.%i.sel.out.pdf'% myData['miropeats_s']    
 
     if os.path.isfile(myData['miroOutPS'])  is True:
         cmd = 'rm %s'  % myData['miroOutPS']
@@ -305,7 +306,7 @@ def run_miropeats_self(myData):
         runCMD(cmd)
 
     
-    cmd = 'miropeats -s 200 -onlyintra -o %s -seq %s > %s ' % (myData['miroOutPS'],myData['contig'],myData['miroOut'])
+    cmd = 'miropeats -s %i -onlyintra -o %s -seq %s > %s ' % (myData['miropeats_s'], myData['miroOutPS'],myData['contig'],myData['miroOut'])
     for fstream in [sys.stdout,myData['logFile']]:
         fstream.write('\nmiropeats cmd is:\n%s\n' % cmd)
         fstream.flush()
@@ -563,7 +564,7 @@ def make_vector_esp_plot(myData):
             fstream.flush()
         runCMD(cmd)
     
-    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
+    cmd = 'minimap2 -c -x asm10 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
     for fstream in [sys.stdout,myData['logFile']]:
         fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
         fstream.flush()
@@ -618,9 +619,9 @@ def make_vector_esp_plot(myData):
         fstream.flush()
     runCMD(cmd)
 
-    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['R1fa'],myData['R1Map'])
+    cmd = 'minimap2 -c -x asm10 %s %s > %s ' % (myData['contig'],myData['R1fa'],myData['R1Map'])
     runCMD(cmd)
-    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['R2fa'],myData['R2Map'])
+    cmd = 'minimap2 -c -x asm10 %s %s > %s ' % (myData['contig'],myData['R2fa'],myData['R2Map'])
     runCMD(cmd)
 
     # read in read hits
@@ -790,7 +791,7 @@ def run_rotate_and_remove(myData):
     
     myData['vectorMapOut'] = myData['outDir'] + 'vector-map.paf'
     
-    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
+    cmd = 'minimap2 -c -x asm10 %s %s > %s ' % (myData['contig'],myData['vector'],myData['vectorMapOut'])
     for fstream in [sys.stdout,myData['logFile']]:
         fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
         fstream.flush()
@@ -837,7 +838,7 @@ def run_rotate_and_remove(myData):
     
         # then, need to redo the alignment
         myData['vectorMapOut'] = myData['outDir'] + 'vector-map.redo.paf'    
-        cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['assemFa'],myData['vector'],myData['vectorMapOut'])
+        cmd = 'minimap2 -c -x asm10 %s %s > %s ' % (myData['assemFa'],myData['vector'],myData['vectorMapOut'])
         for fstream in [sys.stdout,myData['logFile']]:
             fstream.write('\nmap vector cmd is:\n%s\n' % cmd)
             fstream.flush()
@@ -891,7 +892,7 @@ def run_rotate_and_remove(myData):
 
     # now determine where vector is in the rotated
     myData['rotatedVectorMapOut'] = myData['outDir'] + 'rotated-vector-map.paf'
-    cmd = 'minimap2 -c -x asm5 %s %s > %s ' % (myData['rotatedFa'],myData['vector'],myData['rotatedVectorMapOut'])
+    cmd = 'minimap2 -c -x asm10 %s %s > %s ' % (myData['rotatedFa'],myData['vector'],myData['rotatedVectorMapOut'])
     for fstream in [sys.stdout,myData['logFile']]:
         fstream.write('\nrotated map vector cmd is:\n%s\n' % cmd)
         fstream.flush()
