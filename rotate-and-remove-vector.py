@@ -12,6 +12,7 @@ parser.add_argument('--name', type=str,help='name of project',required=True)
 parser.add_argument('--contig', type=str,help='fasta file of contig, should be single sequence',required=True)
 parser.add_argument('--vector', type=str,help='fasta file of vector should be single sequence',required=True)
 parser.add_argument('--clonename', type=str,help='clone name used to extract end sequences',required=True)
+parser.add_argument('--delta', type=int,help='difference in vector length permitted',required=False,default=0)
 
 
 args = parser.parse_args()
@@ -23,7 +24,7 @@ myData['contig'] = args.contig
 myData['outDir'] = args.outdir 
 myData['vector'] = args.vector
 myData['cloneName'] = args.clonename 
-
+myData['delta'] = args.delta 
 
 
 # setup needed files

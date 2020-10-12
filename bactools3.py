@@ -196,7 +196,12 @@ def filter_contam_longread(myData):
     inFile.close()
     print('Read in %i names of long reads' % len(toDrop), flush=True)
     
-    inFile = gzip.open(myData['longread'],'rt')
+    
+    # check to see if input is gzipped
+    if myData['longread'][-3:] == '.gz':
+        inFile = gzip.open(myData['longread'],'rt')
+    else:
+        inFile = open(myData['longread'],'r')    
     outPass = gzip.open(myData['longReadFilt'],'wt')
     outFail = gzip.open(myData['longReadFiltFail'],'wt')
     
@@ -242,7 +247,13 @@ def get_nx(data,totBp,k):
 #####################################################################
 def print_longread_stats(fqFileName,myData):
     readLens = []
-    inFile = gzip.open(fqFileName,'rt')
+
+    # check to see if input is gzipped
+    if fqFileName[-3:] == '.gz':
+        inFile = gzip.open(fqFileName,'rt')
+    else:
+        inFile = open(fqFileName,'r')    
+
     while True:
         rec = get_4l_record(inFile)
         if rec == '':
@@ -913,7 +924,16 @@ def run_rotate_and_remove(myData):
         for fstream in [sys.stdout,myData['logFile']]:
             fstream.write('ERROR! vector not totally spanned in hit:\n')
             fstream.flush()
-        sys.exit()
+        sizeDelt = vectorHit[5] - (vectorHit[4] - vectorHit[3])
+        if sizeDelt <= myData['delta']:
+            for fstream in [sys.stdout,myData['logFile']]:
+                fstream.write('size delt of %i is within range of %i, continuing\n' % (sizeDelt,myData['delta']))
+                fstream.flush()
+        else:
+            for fstream in [sys.stdout,myData['logFile']]:
+                fstream.write('size delt of %i is outside of range of %i, EXITING\n' % (sizeDelt,myData['delta']))
+                fstream.flush()
+            sys.exit()
     
 
     # for now, will assume that the vector sequence is not across the circle junction -- that would be a complication
