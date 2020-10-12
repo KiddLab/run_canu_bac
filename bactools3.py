@@ -790,7 +790,6 @@ def run_racon(myData):
     runCMD(cmd)        
 #######################################################################    
 def run_rotate_and_remove(myData):
-    
     myData['rotatedFa'] = myData['outDir'] + myData['name'] + '.rotated.fa'
     myData['rotatedCleanedFa'] = myData['outDir'] + myData['name'] + '.rotated.clean.fa'
     myData['finalFa'] = myData['outDir'] + myData['cloneName'] + '.fa'
@@ -1000,6 +999,7 @@ def run_rotate_and_remove(myData):
     outFile = open(myData['rotatedCleanedFa'],'w')
     outFile.write('>%s\n' % (myData['cloneName']))
     outFile.write(newSeq)
+    outFile.write('\n')
     outFile.close()
     
 
